@@ -372,7 +372,8 @@ parseArgs() {
       ;;
     --from)
       fromStore="$2"
-      nixCopyOptions+=("--from" "$2")
+      # Don't add --from to nixCopyOptions - we'll pre-fetch to local store instead
+      # This allows --substitute-on-destination to work properly (target pulls directly)
       shift
       ;;
     --option)
@@ -487,6 +488,17 @@ nixCopy() {
     "${nixOptions[@]}" \
     "${nixCopyOptions[@]}" \
     "$@"
+}
+
+# Pre-fetch paths from remote store to local store
+# This enables --substitute-on-destination to work properly:
+# target pulls directly from caches instead of receiving via local machine
+prefetchFromStore() {
+  local storePath=$1
+  if [[ -n ${fromStore} ]]; then
+    step "Pre-fetching from ${fromStore} to local store"
+    nix copy "${nixOptions[@]}" --from "$fromStore" "$storePath"
+  fi
 }
 nixBuild() {
   NIX_SSHOPTS="${sshArgs[*]}" nix build \
@@ -842,6 +854,7 @@ runDisko() {
     runSsh "umask 077; mkdir -p \"$(dirname "$path")\"; cat > $path" <"${diskEncryptionKeys[$path]}"
   done
   if [[ -n ${diskoScript} ]]; then
+    prefetchFromStore "$diskoScript"
     nixCopy --to "ssh://$sshConnection?$sshStoreSettings" "$diskoScript"
   elif [[ ${buildOn} == "remote" ]]; then
     step Building disko script
@@ -858,6 +871,7 @@ runDisko() {
 nixosInstall() {
   local nixosSystem=$1
   if [[ -n ${nixosSystem} ]]; then
+    prefetchFromStore "$nixosSystem"
     step Uploading the system closure
     nixCopy --to "ssh://$sshConnection?remote-store=local%3Froot=%2Fmnt&$sshStoreSettings" "$nixosSystem"
   elif [[ ${buildOn} == "remote" ]]; then
