@@ -430,10 +430,7 @@ parseArgs() {
     nixOptions+=("-L")
   fi
 
-  # Don't use --substitute-on-destination when --from is specified
-  # With --from, push directly from the remote store instead of asking
-  # target to substitute (avoids Nix 2.28.3 crash and simplifies flow)
-  if [[ $substituteOnDestination == "y" ]] && [[ -z ${fromStore} ]]; then
+  if [[ $substituteOnDestination == "y" ]]; then
     nixCopyOptions+=("--substitute-on-destination")
   fi
 
