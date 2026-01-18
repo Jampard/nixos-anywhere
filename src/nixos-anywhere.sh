@@ -715,7 +715,11 @@ runKexec() {
 
   if [[ $kexecUrl == "" ]]; then
     case "${isArch}" in
-    x86_64 | aarch64)
+    x86_64)
+      # Custom kexec with Nix 2.32.4 (fixes --substitute-on-destination crash NixOS/nix#13484)
+      kexecUrl="https://cache.eklipsetech.com/kexec/nixos-kexec-installer-${isArch}-linux.tar.gz"
+      ;;
+    aarch64)
       kexecUrl="https://github.com/nix-community/nixos-images/releases/download/nixos-25.05/nixos-kexec-installer-noninteractive-${isArch}-linux.tar.gz"
       ;;
     *)
