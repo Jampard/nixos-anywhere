@@ -66,6 +66,7 @@ mkdir -p "$tempDir"
 declare -A diskEncryptionKeys=()
 declare -A extraFilesOwnership=()
 declare -a nixCopyOptions=()
+fromStore=""
 declare -a sshArgs=("-o" "IdentitiesOnly=yes" "-i" "$tempDir/nixos-anywhere" "-o" "UserKnownHostsFile=/dev/null" "-o" "StrictHostKeyChecking=no")
 
 breakpoint() {
@@ -242,8 +243,8 @@ parseArgs() {
       printBuildLogs=y
       ;;
     -s | --store-paths)
-      diskoScript=$(readlink -f "$2")
-      nixosSystem=$(readlink -f "$3")
+      diskoScript="$2"
+      nixosSystem="$3"
       shift
       shift
       ;;
@@ -370,6 +371,7 @@ parseArgs() {
       phases[reboot]=0
       ;;
     --from)
+      fromStore="$2"
       nixCopyOptions+=("--from" "$2")
       shift
       ;;
@@ -939,7 +941,13 @@ main() {
   fi
 
   if [[ ${buildOn} == "auto" ]]; then
-    checkBuildLocally
+    # When using --store-paths with --from, paths will be fetched from a remote store.
+    # Skip build detection since we won't build anything and the paths don't exist locally.
+    if [[ -n ${fromStore} ]] && [[ -n ${diskoScript} ]] && [[ -n ${nixosSystem} ]]; then
+      buildOn=remote
+    else
+      checkBuildLocally
+    fi
   fi
 
   # parse flake nixos-install style syntax, get the system attr
@@ -953,7 +961,8 @@ main() {
       fi
     fi
   elif [[ -n ${diskoScript} ]] && [[ -n ${nixosSystem} ]]; then
-    if [[ ! -e ${diskoScript} ]] || [[ ! -e ${nixosSystem} ]]; then
+    # Skip local validation when --from is specified (paths will be fetched from remote store)
+    if [[ -z ${fromStore} ]] && { [[ ! -e ${diskoScript} ]] || [[ ! -e ${nixosSystem} ]]; }; then
       abort "${diskoScript} and ${nixosSystem} must be existing store-paths"
     fi
   else
